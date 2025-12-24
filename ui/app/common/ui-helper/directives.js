@@ -23,25 +23,84 @@ angular.module("bahmni.common.uiHelper")
             require: "ngModel",
             link: function ($scope, element, attrs, ngModel) {
                 
-                var isInitialized = false;
+                // --- HELPERS ---
+                function toNepaliDigits(str) {
+                    return (str + "").replace(/[0-9]/g, function (c) { return { '0':'०','1':'१','2':'२','3':'३','4':'४','5':'५','6':'६','7':'७','8':'८','9':'९' }[c]; });
+                }
+                function toEnglishDigits(str) {
+                    return (str + "").replace(/[०-९]/g, function (c) { return { '०':'0','१':'1','२':'2','३':'3','४':'4','५':'5','६':'6','७':'7','८':'8','९':'9' }[c]; });
+                }
 
+                // --- 1. FORMATTER (Model [AD] -> View [Nepali]) ---
+                ngModel.$formatters.push(function(modelValue) {
+                    if (!modelValue || !(modelValue instanceof Date)) return "";
+                    try {
+                        var bsYear, bsMonth, bsDay;
+                        if (window.calendarFunctions) {
+                            var bsObj = window.calendarFunctions.getBsDateByAdDate(modelValue.getFullYear(), modelValue.getMonth() + 1, modelValue.getDate());
+                            bsYear = bsObj.bsYear; bsMonth = bsObj.bsMonth; bsDay = bsObj.bsDate;
+                        } else if (window.NepaliFunctions) {
+                            var bs = window.NepaliFunctions.AD2BS({ year: modelValue.getFullYear(), month: modelValue.getMonth() + 1, day: modelValue.getDate() });
+                            bsYear = bs.year; bsMonth = bs.month; bsDay = bs.day;
+                        }
+                        var engStr = bsYear + "-" + (bsMonth < 10 ? "0"+bsMonth : bsMonth) + "-" + (bsDay < 10 ? "0"+bsDay : bsDay);
+                        return toNepaliDigits(engStr);
+                    } catch(e) { return ""; }
+                });
+
+                // --- 2. PARSER (View [Nepali] -> Model [AD]) ---
+                ngModel.$parsers.push(function(viewValue) {
+                    // Force validity even if empty
+                    if (!viewValue) {
+                        ngModel.$setValidity('date', true);
+                        return null;
+                    }
+
+                    var engVal = toEnglishDigits(viewValue);
+                    var parts = engVal.split(/[-/.]/);
+                    
+                    if (parts.length === 3) {
+                        try {
+                            var y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
+                            var adDate;
+
+                            if (window.calendarFunctions) {
+                                adDate = window.calendarFunctions.getAdDateByBsDate(y, m - 1, d);
+                            } else if (window.NepaliFunctions) {
+                                var ad = window.NepaliFunctions.BS2AD({ year: y, month: m, day: d });
+                                adDate = new Date(ad.year, ad.month - 1, ad.day);
+                            }
+
+                            if (adDate && !isNaN(adDate.getTime())) {
+                                adDate.setHours(0, 0, 0, 0); // Strip Time
+                                
+                                // *** FORCE SAVE BUTTON ENABLED ***
+                                ngModel.$setValidity('date', true);
+                                ngModel.$setValidity('max', true);
+                                ngModel.$setValidity('pattern', true);
+                                ngModel.$setValidity('parse', true);
+                                
+                                return adDate;
+                            }
+                        } catch(e) { }
+                    }
+                    return undefined;
+                });
+
+                // --- 3. INIT ---
+                var isInitialized = false;
                 function initPicker() {
                     if (isInitialized) return;
-                    
                     if (typeof $.fn.nepaliDatePicker === "function") {
                         element.nepaliDatePicker({
                             dateFormat: "%y-%m-%d",
                             closeOnDateSelect: true,
                             disableFuture: true,
                             onChange: function () {
-                                // PICKER SELECTION
+                                var bsDate = element.val();
                                 $scope.$apply(function () {
-                                    var bsDate = element.val();
-                                    ngModel.$setViewValue(bsDate);
-                                    ngModel.$render();
-                                    if (attrs.ngChange) {
-                                        $scope.$eval(attrs.ngChange);
-                                    }
+                                    ngModel.$setViewValue(bsDate); 
+                                    if (attrs.ngChange) $scope.$eval(attrs.ngChange);
                                 });
                                 element.trigger('change');
                             }
@@ -49,33 +108,21 @@ angular.module("bahmni.common.uiHelper")
                         isInitialized = true;
                     }
                 }
-
-                // MANUAL TYPING: Force update when user leaves the field (Blur)
+                
                 element.on('blur', function() {
-                    $scope.$apply(function() {
-                        var val = element.val();
-                        if(ngModel.$viewValue !== val) {
+                    var val = element.val();
+                    if (ngModel.$viewValue !== val) {
+                        $scope.$apply(function() {
                             ngModel.$setViewValue(val);
-                        }
-                        // Always run the calculation on blur to be safe
-                        if (attrs.ngChange) {
-                            $scope.$eval(attrs.ngChange);
-                        }
-                    });
+                            if (attrs.ngChange) $scope.$eval(attrs.ngChange);
+                        });
+                    }
                 });
 
-                // MODEL -> VIEW Sync
-                ngModel.$render = function() {
-                    var val = ngModel.$viewValue || '';
-                    element.val(val);
-                };
-
-                // Initialize once
                 $timeout(initPicker, 100);
             }
         };
     }])
-    // ... (Keep myAutocomplete, bmForm, etc. as they were) ...
     .directive("myAutocomplete", ["$parse", function ($parse) {
         var link = function (scope, element, attrs, ngModelCtrl) {
             var ngModel = $parse(attrs.ngModel);
