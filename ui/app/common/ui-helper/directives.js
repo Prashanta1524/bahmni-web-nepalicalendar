@@ -17,12 +17,15 @@ angular.module("bahmni.common.uiHelper")
             });
         };
     })
-    .directive("datepicker", ["$timeout", function ($timeout) {
+    .directive("datepicker", ["$timeout", "appService", function ($timeout, appService) {
         return {
             restrict: 'A',
             require: "ngModel",
             link: function ($scope, element, attrs, ngModel) {
                 
+                // 1. Get the configuration value from app.json
+                var enableNepaliCalendar = appService.getAppDescriptor().getConfigValue("enableNepaliCalendar");
+
                 // --- HELPERS ---
                 function toNepaliDigits(str) {
                     return (str + "").replace(/[0-9]/g, function (c) { return { '0':'०','1':'१','2':'२','3':'३','4':'४','5':'५','6':'६','7':'७','8':'८','9':'९' }[c]; });
@@ -31,67 +34,64 @@ angular.module("bahmni.common.uiHelper")
                     return (str + "").replace(/[०-९]/g, function (c) { return { '०':'0','१':'1','२':'2','३':'3','४':'4','५':'5','६':'6','७':'7','८':'8','९':'9' }[c]; });
                 }
 
-                // --- 1. FORMATTER (Model [AD] -> View [Nepali]) ---
-                ngModel.$formatters.push(function(modelValue) {
-                    if (!modelValue || !(modelValue instanceof Date)) return "";
-                    try {
-                        var bsYear, bsMonth, bsDay;
-                        if (window.calendarFunctions) {
-                            var bsObj = window.calendarFunctions.getBsDateByAdDate(modelValue.getFullYear(), modelValue.getMonth() + 1, modelValue.getDate());
-                            bsYear = bsObj.bsYear; bsMonth = bsObj.bsMonth; bsDay = bsObj.bsDate;
-                        } else if (window.NepaliFunctions) {
-                            var bs = window.NepaliFunctions.AD2BS({ year: modelValue.getFullYear(), month: modelValue.getMonth() + 1, day: modelValue.getDate() });
-                            bsYear = bs.year; bsMonth = bs.month; bsDay = bs.day;
-                        }
-                        var engStr = bsYear + "-" + (bsMonth < 10 ? "0"+bsMonth : bsMonth) + "-" + (bsDay < 10 ? "0"+bsDay : bsDay);
-                        return toNepaliDigits(engStr);
-                    } catch(e) { return ""; }
-                });
-
-                // --- 2. PARSER (View [Nepali] -> Model [AD]) ---
-                ngModel.$parsers.push(function(viewValue) {
-                    // Force validity even if empty
-                    if (!viewValue) {
-                        ngModel.$setValidity('date', true);
-                        return null;
-                    }
-
-                    var engVal = toEnglishDigits(viewValue);
-                    var parts = engVal.split(/[-/.]/);
-                    
-                    if (parts.length === 3) {
+                if (enableNepaliCalendar) {
+                    // --- NEPALI FORMATTER (Model [AD] -> View [Nepali BS]) ---
+                    ngModel.$formatters.push(function(modelValue) {
+                        if (!modelValue) return "";
+                        var dateValue = modelValue instanceof Date ? modelValue : new Date(modelValue);
+                        if (isNaN(dateValue.getTime())) return "";
+                        
                         try {
-                            var y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
-                            var adDate;
-
+                            var bsYear, bsMonth, bsDay;
                             if (window.calendarFunctions) {
-                                adDate = window.calendarFunctions.getAdDateByBsDate(y, m - 1, d);
+                                var bsObj = window.calendarFunctions.getBsDateByAdDate(dateValue.getFullYear(), dateValue.getMonth() + 1, dateValue.getDate());
+                                bsYear = bsObj.bsYear; bsMonth = bsObj.bsMonth; bsDay = bsObj.bsDate;
                             } else if (window.NepaliFunctions) {
-                                var ad = window.NepaliFunctions.BS2AD({ year: y, month: m, day: d });
-                                adDate = new Date(ad.year, ad.month - 1, ad.day);
+                                var bs = window.NepaliFunctions.AD2BS({ year: dateValue.getFullYear(), month: dateValue.getMonth() + 1, day: dateValue.getDate() });
+                                bsYear = bs.year; bsMonth = bs.month; bsDay = bs.day;
                             }
+                            var engStr = bsYear + "-" + (bsMonth < 10 ? "0"+bsMonth : bsMonth) + "-" + (bsDay < 10 ? "0"+bsDay : bsDay);
+                            return toNepaliDigits(engStr);
+                        } catch(e) { return ""; }
+                    });
 
-                            if (adDate && !isNaN(adDate.getTime())) {
-                                adDate.setHours(0, 0, 0, 0); // Strip Time
-                                
-                                // *** FORCE SAVE BUTTON ENABLED ***
-                                ngModel.$setValidity('date', true);
-                                ngModel.$setValidity('max', true);
-                                ngModel.$setValidity('pattern', true);
-                                ngModel.$setValidity('parse', true);
-                                
-                                return adDate;
-                            }
-                        } catch(e) { }
-                    }
-                    return undefined;
-                });
+                    // --- NEPALI PARSER (View [Nepali BS] -> Model [AD Date]) ---
+                    ngModel.$parsers.push(function(viewValue) {
+                        if (!viewValue) {
+                            ngModel.$setValidity('date', true);
+                            return null;
+                        }
 
-                // --- 3. INIT ---
-                var isInitialized = false;
-                function initPicker() {
-                    if (isInitialized) return;
-                    if (typeof $.fn.nepaliDatePicker === "function") {
+                        var engVal = toEnglishDigits(viewValue);
+                        var parts = engVal.split(/[-/.]/);
+                        
+                        if (parts.length === 3) {
+                            try {
+                                var y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
+                                var adDate;
+
+                                if (window.calendarFunctions) {
+                                    adDate = window.calendarFunctions.getAdDateByBsDate(y, m - 1, d);
+                                } else if (window.NepaliFunctions) {
+                                    var ad = window.NepaliFunctions.BS2AD({ year: y, month: m, day: d });
+                                    adDate = new Date(ad.year, ad.month - 1, ad.day);
+                                }
+
+                                if (adDate && !isNaN(adDate.getTime())) {
+                                    adDate.setHours(0, 0, 0, 0);
+                                    ngModel.$setValidity('date', true);
+                                    return adDate;
+                                }
+                            } catch(e) { }
+                        }
+                        return undefined;
+                    });
+                }
+
+                // --- INITIALIZATION ---
+                var initPicker = function () {
+                    if (enableNepaliCalendar && typeof $.fn.nepaliDatePicker === "function") {
+                        // Initialize Nepali Picker
                         element.nepaliDatePicker({
                             dateFormat: "%y-%m-%d",
                             closeOnDateSelect: true,
@@ -105,10 +105,25 @@ angular.module("bahmni.common.uiHelper")
                                 element.trigger('change');
                             }
                         });
-                        isInitialized = true;
+                    } else {
+                        // Initialize Standard English Picker
+                        element.datepicker({
+                            dateFormat: 'yy-mm-dd',
+                            changeMonth: true,
+                            changeYear: true,
+                            maxDate: 0,
+                            onSelect: function (dateText) {
+                                $scope.$apply(function () {
+                                    ngModel.$setViewValue(dateText);
+                                    if (attrs.ngChange) $scope.$eval(attrs.ngChange);
+                                });
+                                element.trigger('change');
+                            }
+                        });
                     }
-                }
+                };
                 
+                // Common blur handling
                 element.on('blur', function() {
                     var val = element.val();
                     if (ngModel.$viewValue !== val) {
