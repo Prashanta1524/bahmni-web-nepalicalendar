@@ -176,7 +176,7 @@
                         <label class="start-date-label ">{{ ::treatmentConfig.translate('startDate', 'MEDICATION_LABEL_START_DATE') }} </label>
                     </div>
                     <div class="field-value">
-                        <input id="start-date" date-converter class="start-date " type="date"
+                        <input id="start-date" date-converter class="start-date " type="text" datepicker placeholder="YYYY-MM-DD"
                                ng-model="treatment.effectiveStartDate" required>
                     </div>
                 </article>
@@ -320,7 +320,7 @@
                     <label>{{'MEDICATION_LABEL_START_DATE'|translate}}</label>
                 </div>
                 <div class="field-value">
-                    <input type="date" ng-model="newOrderSet.date" ng-disabled="isSearchDisabled"/>
+                    <input type="text" datepicker placeholder="YYYY-MM-DD" ng-model="newOrderSet.date" ng-disabled="isSearchDisabled"/>
                 </div>
             </article>
             <div class="orderSet-order-container clearfix">

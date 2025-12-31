@@ -42,8 +42,8 @@
             <div class="col col3">
                 <div class="col-header">{{'CONDITION_LIST_DATE' | translate}}</div>
                 <div class="col-body">
-                    <input date-converter class="form-field" type="date" max="{{todayWithoutTime}}"
-                        ng-model="consultation.condition.onSetDate">
+                    <input date-converter class="form-field" type="text" datepicker max="{{todayWithoutTime}}"
+                        ng-model="consultation.condition.onSetDate" placeholder="YYYY-MM-DD">
                     <button type="button" toggle="consultation.condition.showNotes" class="comment-toggle fr"
                         ng-class="{'has-notes': consultation.condition.additionalDetail}">
                         <i class="fa fa-file-o" ng-hide="consultation.condition.additionalDetail">

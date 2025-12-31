@@ -9,11 +9,29 @@ angular.module('bahmni.common.uiHelper')
         return function (date) {
             return Bahmni.Common.Util.DateUtil.formatDateWithTime(date);
         };
-    }).filter('bahmniDate', function () {
+    }).filter('bahmniDate', ['appService', function (appService) {
+        var cache = {}; // Simple cache to prevent infinite loops
+
         return function (date) {
-            return Bahmni.Common.Util.DateUtil.formatDateWithoutTime(date);
+            if (!date) return "";
+            
+            // If we already calculated this date, return the cached string
+            var dateKey = date instanceof Date ? date.getTime() : date;
+            if (cache[dateKey]) return cache[dateKey];
+
+            var enableNepaliCalendar = appService.getAppDescriptor().getConfigValue("enableNepaliCalendar");
+            var result = "";
+
+            if (enableNepaliCalendar && window.NepaliFunctions) {
+                result = Bahmni.Common.Util.NepaliDateUtil.formatAdToBs(date);
+            } else {
+                result = moment(date).format("DD MMM YY");
+            }
+
+            cache[dateKey] = result;
+            return result;
         };
-    }).filter('bahmniTime', function () {
+    }]).filter('bahmniTime', function () {
         return function (date) {
             return Bahmni.Common.Util.DateUtil.formatTime(date);
         };

@@ -56,7 +56,7 @@ angular.module('bahmni.common.uiHelper')
             },
             template:
                 "<div>" +
-                    "<input type='date' ng-change='updateModel()' ng-class=\"{'illegalValue': illegalValue}\" ng-attr-max='{{maxDate || undefined}}' ng-model='selectedDate' ng-disabled='observation.disabled' />" +
+                    "<input type='text' datepicker ng-change='updateModel()' ng-class=\"{'illegalValue': illegalValue}\" ng-attr-max='{{maxDate || undefined}}' ng-model='selectedDate' ng-disabled='observation.disabled' />" +
                 "</div>" +
                 "<div>" +
                     "<input type='time' ng-change='updateModel()' ng-class= \"{'illegalValue': !isValid()}\" ng-model='selectedTime' ng-disabled='observation.disabled' />" +

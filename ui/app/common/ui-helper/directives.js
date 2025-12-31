@@ -23,10 +23,8 @@ angular.module("bahmni.common.uiHelper")
             require: "ngModel",
             link: function ($scope, element, attrs, ngModel) {
                 
-                // 1. Get the configuration value from app.json
                 var enableNepaliCalendar = appService.getAppDescriptor().getConfigValue("enableNepaliCalendar");
 
-                // --- HELPERS ---
                 function toNepaliDigits(str) {
                     return (str + "").replace(/[0-9]/g, function (c) { return { '0':'०','1':'१','2':'२','3':'३','4':'४','5':'५','6':'६','7':'७','8':'८','9':'९' }[c]; });
                 }
@@ -35,7 +33,6 @@ angular.module("bahmni.common.uiHelper")
                 }
 
                 if (enableNepaliCalendar) {
-                    // --- NEPALI FORMATTER (Model [AD] -> View [Nepali BS]) ---
                     ngModel.$formatters.push(function(modelValue) {
                         if (!modelValue) return "";
                         var dateValue = modelValue instanceof Date ? modelValue : new Date(modelValue);
@@ -55,7 +52,6 @@ angular.module("bahmni.common.uiHelper")
                         } catch(e) { return ""; }
                     });
 
-                    // --- NEPALI PARSER (View [Nepali BS] -> Model [AD Date]) ---
                     ngModel.$parsers.push(function(viewValue) {
                         if (!viewValue) {
                             ngModel.$setValidity('date', true);
@@ -88,10 +84,8 @@ angular.module("bahmni.common.uiHelper")
                     });
                 }
 
-                // --- INITIALIZATION ---
                 var initPicker = function () {
                     if (enableNepaliCalendar && typeof $.fn.nepaliDatePicker === "function") {
-                        // Initialize Nepali Picker
                         element.nepaliDatePicker({
                             dateFormat: "%y-%m-%d",
                             closeOnDateSelect: true,
@@ -106,7 +100,6 @@ angular.module("bahmni.common.uiHelper")
                             }
                         });
                     } else {
-                        // Initialize Standard English Picker
                         element.datepicker({
                             dateFormat: 'yy-mm-dd',
                             changeMonth: true,
@@ -123,7 +116,6 @@ angular.module("bahmni.common.uiHelper")
                     }
                 };
                 
-                // Common blur handling
                 element.on('blur', function() {
                     var val = element.val();
                     if (ngModel.$viewValue !== val) {
@@ -135,6 +127,33 @@ angular.module("bahmni.common.uiHelper")
                 });
 
                 $timeout(initPicker, 100);
+            }
+        };
+    }])
+    .filter("nepaliDate", ["appService", function (appService) {
+        return function (dateValue) {
+            if (!dateValue) return "";
+            var enableNepaliCalendar = appService.getAppDescriptor().getConfigValue("enableNepaliCalendar");
+            if (!enableNepaliCalendar) return moment(dateValue).format("DD-MMM-YYYY");
+
+            var date = new Date(dateValue);
+            if (isNaN(date.getTime())) return dateValue;
+
+            try {
+                var bsYear, bsMonth, bsDay;
+                if (window.calendarFunctions) {
+                    var bsObj = window.calendarFunctions.getBsDateByAdDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
+                    bsYear = bsObj.bsYear; bsMonth = bsObj.bsMonth; bsDay = bsObj.bsDate;
+                } else if (window.NepaliFunctions) {
+                    var bs = window.NepaliFunctions.AD2BS({ year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() });
+                    bsYear = bs.year; bsMonth = bs.month; bsDay = bs.day;
+                }
+                var engStr = bsYear + "-" + (bsMonth < 10 ? "0" + bsMonth : bsMonth) + "-" + (bsDay < 10 ? "0" + bsDay : bsDay);
+                return (engStr + "").replace(/[0-9]/g, function (c) { 
+                    return { '0':'०','1':'१','2':'२','3':'३','4':'४','5':'५','6':'६','7':'७','8':'८','9':'९' }[c]; 
+                });
+            } catch(e) {
+                return moment(dateValue).format("DD-MMM-YYYY");
             }
         };
     }])

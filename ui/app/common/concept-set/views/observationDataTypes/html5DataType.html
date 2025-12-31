@@ -1,3 +1,4 @@
+<!-- 1. Numeric Input (Standard) -->
 <input id="{{::observation.uniqueId}}" ng-if="::(observation.isNumeric() && !observation.isStepperControl())"
        obs-constraints obs="::observation"
        ng-model="observation.value" ng-change="handleUpdate()"
@@ -6,17 +7,37 @@
        type="number"
        focus-me="::observation.isFocused" tabindex="1"/>
 
-<input id="{{::observation.uniqueId}}" obs-constraints obs="::observation"
-       ng-if="!observation.isNumeric() && !observation._isDateTimeDataType() && !observation.conceptUIConfig.displayMonthAndYear" ng-disabled="observation.disabled"
-       ng-model="observation.value" ng-change="handleUpdate()"
+<!-- 2. NEPALI DATE PICKER (Only for Date type concepts) -->
+<input id="{{::observation.uniqueId}}" 
+       obs-constraints obs="::observation"
+       datepicker
+       type="text"
+       placeholder="YYYY-MM-DD"
+       ng-if="!observation.isNumeric() && !observation._isDateTimeDataType() && !observation.conceptUIConfig.displayMonthAndYear && observation.dataTypeName === 'Date'" 
+       ng-disabled="observation.disabled"
+       ng-model="observation.value" 
+       ng-change="handleUpdate()"
        ng-class="{'is-abnormal': observation.abnormalObs.value, 'illegalValue': !observation.isValid(atLeastOneValueIsSet,conceptSetRequired), 'computed-field': observation.isComputedAndEditable()}"
        focus-me="::observation.isFocused" tabindex="1"/>
+
+<!-- 3. Standard Text Input (For non-date, non-numeric concepts) -->
+<input id="{{::observation.uniqueId}}" 
+       obs-constraints obs="::observation"
+       ng-if="!observation.isNumeric() && !observation._isDateTimeDataType() && !observation.conceptUIConfig.displayMonthAndYear && observation.dataTypeName !== 'Date'" 
+       ng-disabled="observation.disabled"
+       ng-model="observation.value" 
+       ng-change="handleUpdate()"
+       ng-class="{'is-abnormal': observation.abnormalObs.value, 'illegalValue': !observation.isValid(atLeastOneValueIsSet,conceptSetRequired), 'computed-field': observation.isComputedAndEditable()}"
+       focus-me="::observation.isFocused" tabindex="1"/>
+
+<!-- 4. Stepper Control -->
 <stepper id="{{::observation.uniqueId}}"
          ng-model="observation.value" ng-blur="handleUpdate()" obs="observation"
          ng-class="{'is-abnormal': observation.abnormalObs.value, 'illegalValue': !observation.isValid(atLeastOneValueIsSet, conceptSetRequired)}"
          focus-me="::observation.isFocused"
          ng-if="::(observation.isNumeric() && observation.isStepperControl())" tabindex="1"></stepper>
 
+<!-- 5. DateTime Picker -->
 <datetimepicker model="observation.value"
                 observation="::observation"
                 ng-blur="handleUpdate()"
@@ -24,6 +45,7 @@
                 show-time="::true" illegal-value="!observation.isValid(atLeastOneValueIsSet, conceptSetRequired)"
                 ng-if="::(observation._isDateTimeDataType())" tabindex="1"></datetimepicker>
 
+<!-- 6. Month-Year Picker -->
 <monthyearpicker min-year="::observation.conceptUIConfig.minYear"
                  max-year="::observation.conceptUIConfig.maxYear"
                  ng-if="!observation.isNumeric() && !observation._isDateTimeDataType() && observation.conceptUIConfig.displayMonthAndYear"

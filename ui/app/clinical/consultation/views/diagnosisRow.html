@@ -27,7 +27,7 @@
             </div>
             <div>
                 <span class="time-stamp">
-                    <span class="date">{{diagnosis.firstDiagnosis.diagnosisDateTime | bahmniDate}}</span>
+                    <span class="text">{{diagnosis.firstDiagnosis.diagnosisDateTime | nepaliDate}}</span>
                 </span>
                 <span class="provider" ng-repeat="provider in diagnosis.firstDiagnosis.providers">
                     <provider-directive creator-name="{{diagnosis.firstDiagnosis.creatorName}}"
@@ -47,7 +47,7 @@
             </div>
             <div>
                 <span class="time-stamp">
-                    <span class="date">{{diagnosis.diagnosisDateTime | bahmniDate}}</span>
+                    <span class="text" >{{diagnosis.diagnosisDateTime | nepaliDate}}</span>
                 </span>
                 <span class="provider" ng-repeat="provider in diagnosis.providers">
                     <provider-directive creator-name="{{diagnosis.creatorName}}" provider-name="{{provider.name}}">

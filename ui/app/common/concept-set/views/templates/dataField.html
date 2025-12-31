@@ -4,7 +4,7 @@
     </div>
     <div  ng-switch on="displayType" class="field-value">
         <span class="value-text-only" ng-switch-when="readonly">{{value}}</span>
-        <input  type="text" ng-switch-default ng-model="value"></input>
+        <input  type="text" datepicker ng-switch-default ng-model="value"></input>
        <!-- <div ng-switch-default>
             <div  ng-switch on="selectOptions.length">
                 <input  type="text" ng-switch-when="0" ng-model="fieldValue"></input>
