@@ -257,3 +257,5 @@ angular.module("bahmni.common.uiHelper")
             require: "ngModel",
         };
     });
+
+    
