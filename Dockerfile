@@ -1,57 +1,53 @@
-# --- STAGE 1: The Build Environment (The "Kitchen") ---
-# We use Node 14 as it is standard for Bahmni-Standard migrations
+# --- STAGE 1: The Build Environment ---
 FROM node:14-bullseye AS builder
 
-# 1. Increase Memory Limit for Node.js
-# Bahmni builds are heavy; this prevents "JavaScript heap out of memory" errors
+# 1. Increase memory for heavy JavaScript builds
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# 2. Install system dependencies
-# Ruby/Sass/Compass are required for Bahmni's older CSS styles
-# dos2unix is CRITICAL because you are developing on Windows
+# 2. Install system tools (Ruby/Sass/Compass are still needed for Bahmni CSS)
 RUN apt-get update && apt-get install -y \
-    ruby-full \
-    build-essential \
-    git \
-    dos2unix \
-    && gem install sass -v 3.4.22 \
-    && gem install compass -v 1.0.3
+    ruby-full build-essential git dos2unix \
+    && gem install sass -v 3.4.22 && gem install compass -v 1.0.3
 
-# 3. Install global frontend tools
-RUN npm install -g bower grunt-cli
+# 3. Install Grunt (Bahmni uses this to bundle the UI)
+RUN npm install -g grunt-cli
 
 WORKDIR /app
 
-# 4. Copy the entire repository into the container
+# 4. Copy everything from your repository
 COPY . .
 
 # 5. CRITICAL: Fix Windows Line Endings (CRLF to LF)
-# This fixes the "Command not found" and "Exit Code 127" errors
+# Since you are on Windows, this prevents the "Command not found" errors
 RUN find . -type f -name "*.sh" -exec dos2unix {} +
 RUN find . -type f -name "*.json" -exec dos2unix {} +
 
-# 6. Run the Multi-Step Build
-# We run them separately so it's easier to see which step fails in GitHub Actions
-# A. Install build-time dependencies
-RUN cd ui && yarn install --network-timeout 1000000
+# 6. RUN THE BUILD PROCESS
+# Step A: Install root dependencies
+RUN yarn install --network-timeout 1000000
 
-# B. Install runtime UI libraries (Angular, JQuery, etc.)
-RUN cd ui && bower install --allow-root --config.interactive=false
+# Step B: Build micro-frontends (if your team is using them)
+RUN if [ -d "micro-frontends" ]; then \
+      cd micro-frontends && \
+      yarn install --frozen-lock-file && \
+      yarn build; \
+    fi
 
-# C. Run the final Bahmni packaging script (This creates the 'dist' folder)
-RUN cd ui && /bin/bash ./scripts/package.sh
+# Step C: The Main Build (The "Brain" of the project)
+# This command runs your Nepali Calendar and all other custom logic
+RUN cd ui && \
+    yarn install && \
+    /bin/bash ./scripts/package.sh
 
 
-# --- STAGE 2: The Production Image (The "Serving Plate") ---
-# This is what actually runs on your server
+# --- STAGE 2: The Production Image ---
 FROM bahmni/bahmni-web:latest
 
-# 7. Clean the default Bahmni files to make room for your custom features
+# 7. Clean the default web folder
 RUN rm -rf /usr/local/apache2/htdocs/bahmni/*
 
-# 8. Copy the "cooked" files from Stage 1
-# This takes the result of the build and puts it in the Apache web folder
+# 8. Copy the finished "dist" folder into the production server path
 COPY --from=builder /app/ui/dist /usr/local/apache2/htdocs/bahmni/
 
-# 9. Set correct permissions for the web server
+# 9. Set permissions so the website is readable
 RUN chmod -R 755 /usr/local/apache2/htdocs/bahmni/
