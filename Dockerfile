@@ -16,7 +16,7 @@ RUN npm install -g bower grunt-cli
 WORKDIR /app
 
 # 3. Copy only dependency files first (for faster building)
-COPY package.json yarn.lock ./
+COPY package.json yarn.lock* package-lock.json* ./
 
 # 4. Install dependencies
 RUN yarn install
