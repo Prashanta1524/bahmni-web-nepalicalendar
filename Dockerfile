@@ -1,31 +1,43 @@
-# --- STAGE 1: Build the Nepali Calendar code ---
-FROM node:14-alpine AS builder
+# --- STAGE 1: The Build Environment ---
+FROM node:14-bullseye AS builder
 
-# 1. Create a workspace
+# 1. Install system dependencies for Bahmni (Ruby is needed for Compass/SASS)
+RUN apt-get update && apt-get install -y \
+    ruby-full \
+    build-essential \
+    git \
+    dos2unix \
+    && gem install sass -v 3.4.22 \
+    && gem install compass -v 1.0.3
+
+# 2. Install global frontend tools
+RUN npm install -g bower grunt-cli
+
 WORKDIR /app
 
-# 2. Copy only the files that define dependencies (makes building faster)
+# 3. Copy only dependency files first (for faster building)
 COPY package.json yarn.lock ./
 
-# 3. Install the tools (Yarn)
+# 4. Install dependencies
 RUN yarn install
 
-# 4. Copy all your code (including your Nepali calendar changes)
+# 5. Copy the rest of the frontend code
 COPY . .
 
-# 5. Build the project. This generates the "ui/dist" folder
-RUN yarn build
+# 6. CRITICAL: Fix Windows Line Endings so scripts work on Linux
+RUN find . -type f -name "*.sh" -exec dos2unix {} +
+
+# 7. Run the actual Bahmni build
+# This creates the 'ui/dist' folder containing ALL your custom features
+RUN cd ui && yarn install && /bin/bash ./scripts/package.sh
 
 
-# --- STAGE 2: Package it for Bahmni Standard ---
+# --- STAGE 2: The Production Image ---
 FROM bahmni/bahmni-web:latest
 
-# 6. Delete the default Bahmni files inside the image
-RUN rm -rf /usr/local/apache2/htdocs/bahmni/*
-
-# 7. Copy your NEWly built files into the web server folder
-# Note: In this repo, 'yarn build' puts files in 'ui/dist'
+# 8. Copy the "cooked" files into the folder Bahmni serves
+# This overwrites the default Bahmni UI with your custom version
 COPY --from=builder /app/ui/dist /usr/local/apache2/htdocs/bahmni/
 
-# 8. Set correct permissions so the web server can read the files
+# 9. Set permissions
 RUN chmod -R 755 /usr/local/apache2/htdocs/bahmni/
