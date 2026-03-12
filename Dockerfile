@@ -54,7 +54,7 @@ RUN cd ui && \
 FROM bahmni/bahmni-web:latest
 
 # 8. Clean default files
-RUN rm -rf /usr/local/apache2/htdocs/bahmni/*
+COPY --from=builder /app/ui/dist /usr/local/apache2/htdocs/bahmni/
 
 # 9. Copy the finished "dist" folder
 COPY --from=builder /app/ui/dist /usr/local/apache2/htdocs/bahmni/
