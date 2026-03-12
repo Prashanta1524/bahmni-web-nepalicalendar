@@ -24,4 +24,4 @@ jobs:
           context: .
           push: true
           # REPLACE 'your-username' with your actual Docker Hub ID
-          tags: your-username/bahmni-web-custom:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/bahmni-web-custom:latest
