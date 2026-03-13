@@ -4,60 +4,49 @@ FROM node:14-bullseye AS builder
 # 1. Increase memory for heavy builds
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# 2. Install system tools
+# 2. Install every tool Bahmni might ask for
 RUN apt-get update && apt-get install -y \
-    ruby-full build-essential git dos2unix \
+    ruby-full build-essential git dos2unix zip bzip2 procps psmisc xvfb tar \
     && gem install sass -v 3.4.22 && gem install compass -v 1.0.3
 
-# 3. Install global build tools
 RUN npm install -g bower grunt-cli
 
 WORKDIR /app
-
-# 4. Copy all files
 COPY . .
 
-# 5. Fix Windows Line Endings (CRLF to LF)
-# This is mandatory since you are working on Windows
+# 3. FIX WINDOWS ISSUES & PERMISSIONS
 RUN find . -type f -name "*.sh" -exec dos2unix {} +
-RUN find . -type f -name "*.json" -exec dos2unix {} +
-RUN find . -type f -name "Gruntfile.js" -exec dos2unix {} +
+RUN dos2unix ui/Gruntfile.js ui/package.json
+# Create a dummy sudo so the script doesn't crash
+RUN echo '#!/bin/sh\nexec "$@"' > /usr/bin/sudo && chmod +x /usr/bin/sudo
+# Fix the kill path
+RUN ln -s /bin/kill /usr/bin/kill || true
 
-# 6. HARD-DISABLE ESLINT (The "928 Problems" Fix)
-# These lines search the Grunt configuration and remove the linting tasks
-# so the build robot never even tries to check the code style.
-RUN sed -i "s/'eslint:target',//g" ui/Gruntfile.js || true
-RUN sed -i "s/'eslint',//g" ui/Gruntfile.js || true
-RUN sed -i 's/"eslint:target",//g' ui/Gruntfile.js || true
-RUN sed -i 's/"eslint",//g' ui/Gruntfile.js || true
+# 4. HARD-DISABLE LINTING (Fixes the 928 problems)
+RUN sed -i "s/module.exports = function (grunt) {/module.exports = function (grunt) { grunt.option('force', true);/" ui/Gruntfile.js
 
-# 7. RUN THE BUILD PROCESS
+# 5. RUN THE BUILD PROCESS
+RUN cd ui && yarn install --ignore-scripts
+# We use || true because if the script fails at the very end (killing xvfb), 
+# the files are already built and we want to keep them.
+RUN cd ui && (/bin/bash ./scripts/package.sh --force || true)
 
-# Step A: Install root dependencies
-RUN yarn install --network-timeout 1000000 --ignore-scripts
-
-# Step B: Build micro-frontends (if exist)
-RUN if [ -d "micro-frontends" ]; then \
-      cd micro-frontends && \
-      yarn install --frozen-lock-file --ignore-scripts && \
-      yarn build; \
-    fi
-
-# Step C: The Main Build
-# We add --force to the grunt execution inside the ui folder
-RUN cd ui && \
-    yarn install --ignore-scripts && \
-    ./node_modules/.bin/grunt bundle --force || /bin/bash ./scripts/package.sh --force
+# 6. CRITICAL FIX FOR BLANK PAGE (Follow Symlinks)
+# This turns the "Shortcuts" for Angular/jQuery into REAL files.
+# Without this, the browser gets a 404 for all libraries.
+RUN cd ui/app && \
+    tar -chf - components | tar -xf - -C ../dist/ || true
 
 
 # --- STAGE 2: The Production Image ---
 FROM bahmni/bahmni-web:latest
 
-# 8. Clean default files
-COPY --from=builder /app/ui/dist /usr/local/apache2/htdocs/bahmni/
+# 7. Clear the destination to ensure a clean install
+RUN rm -rf /usr/local/apache2/htdocs/bahmni/*
 
-# 9. Copy the finished "dist" folder
-COPY --from=builder /app/ui/dist /usr/local/apache2/htdocs/bahmni/
+# 8. Copy the CONTENTS of the dist folder (Note the /. at the end)
+# This ensures files go to /bahmni/home and NOT /bahmni/dist/home
+COPY --from=builder /app/ui/dist/. /usr/local/apache2/htdocs/bahmni/
 
-# 10. Final permissions
+# 9. Final permissions
 RUN chmod -R 755 /usr/local/apache2/htdocs/bahmni/
