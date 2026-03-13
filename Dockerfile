@@ -48,5 +48,5 @@ RUN rm -rf /usr/local/apache2/htdocs/bahmni/*
 # This ensures files go to /bahmni/home and NOT /bahmni/dist/home
 COPY --from=builder /app/ui/dist/. /usr/local/apache2/htdocs/bahmni/
 
-# 9. Final permissions
+# 9. Final permissions changes
 RUN chmod -R 755 /usr/local/apache2/htdocs/bahmni/
