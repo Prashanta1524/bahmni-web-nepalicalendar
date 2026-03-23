@@ -12,12 +12,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. --- CHECKOUT ---
+      # 1. --- CHECKOUT CODE ---
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # 2. --- FIX WINDOWS LINE ENDINGS (CRITICAL) ---
-      # This prevents the $'\r' error which breaks the next 'sed' commands
+      # 2. --- FIX WINDOWS LINE ENDINGS (Mandatory for sed to work) ---
       - name: Fix Windows Line Endings
         run: |
           sudo apt-get update && sudo apt-get install -y dos2unix
@@ -31,7 +30,7 @@ jobs:
         with:
           node-version: 14.x
 
-      # 4. --- INSTALL RUBY & COMPASS (Required for Bahmni CSS) ---
+      # 4. --- INSTALL RUBY & COMPASS (Required for compilation) ---
       - name: Install Ruby and Compass
         run: |
           sudo apt-get install -y ruby-full build-essential
@@ -43,19 +42,19 @@ jobs:
         run: |
           npm install -g bower grunt-cli yarn
 
-      # 6. --- THE "ANYHOW" FIX: BYPASS LINTING & BUILD ---
-      - name: Force Build UI (Ignore 928 Errors)
+      # 6. --- THE "ANYHOW" FIX: DELETE LINTING & BUILD ---
+      - name: Force Build UI (Bypass 928 Errors)
         run: |
           cd ui
           
-          # ✅ THE FIX: Delete 'eslint' from the Gruntfile build sequence
-          # This tells the system "Do not even look at the code style"
+          # ✅ THE HAMMER: This command searches Gruntfile.js and 
+          # deletes every mention of 'eslint' so the check never runs.
           sed -i "s/'eslint:target',//g" Gruntfile.js || true
           sed -i "s/'eslint',//g" Gruntfile.js || true
           sed -i 's/"eslint:target",//g' Gruntfile.js || true
           sed -i 's/"eslint",//g' Gruntfile.js || true
           
-          # ✅ THE EXTRA FIX: Inject 'force' option directly into Grunt
+          # ✅ THE FORCE: Injects a command to Grunt to ignore all warnings
           sed -i "s/module.exports = function (grunt) {/module.exports = function (grunt) { grunt.option('force', true);/" Gruntfile.js
 
           # Run the build
