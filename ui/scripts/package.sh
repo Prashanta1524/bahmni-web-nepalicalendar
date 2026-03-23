@@ -16,7 +16,7 @@ yarn uglify-and-rename
 
 cd $ROOT_DIR
 
-if [ $(pgrep Xvfb) ]; then
+if [ $(pgrep Xvfb) ]; then4
     XVFB_PID=$(pgrep Xvfb)
     echo "Killing Xvfb process $XVFB_PID"
     /usr/bin/sudo kill $XVFB_PID

@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN npm install -g bower grunt-cli
 
-WORKDIR /app
+WORKDIR /appcd 
 COPY . .
 
 # 3. FIX WINDOWS ISSUES & PERMISSIONS
